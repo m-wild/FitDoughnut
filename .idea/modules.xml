@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/FitDoughnut.iml" filepath="$PROJECT_DIR$/FitDoughnut.iml" />
+      <module fileurl="file://$PROJECT_DIR$/fitdoughnut/fitdoughnut.iml" filepath="$PROJECT_DIR$/fitdoughnut/fitdoughnut.iml" />
+      <module fileurl="file://$PROJECT_DIR$/fitdoughnutsampleapp/fitdoughnutsampleapp.iml" filepath="$PROJECT_DIR$/fitdoughnutsampleapp/fitdoughnutsampleapp.iml" />
+    </modules>
+  </component>
+</project>
+
