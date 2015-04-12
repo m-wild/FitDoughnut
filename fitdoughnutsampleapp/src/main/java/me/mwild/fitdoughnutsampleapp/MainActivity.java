@@ -1,19 +1,36 @@
 package me.mwild.fitdoughnutsampleapp;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import me.mwild.fitdoughnut.FitDoughnut;
+
 
 public class MainActivity extends ActionBarActivity {
+
+    public FitDoughnut doughnut;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
+        doughnut = (FitDoughnut) findViewById(R.id.doughnut);
+
+
+
     }
 
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus)
+            doughnut.animateToPercent(60);
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {

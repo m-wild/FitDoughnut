@@ -1,13 +1,25 @@
 package me.mwild.fitdoughnut;
 
+import android.animation.AnimatorInflater;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
+import android.animation.TimeInterpolator;
+import android.animation.ValueAnimator;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.util.Property;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.AnimationUtils;
+import android.view.animation.BounceInterpolator;
+import android.view.animation.DecelerateInterpolator;
 
 
 public class FitDoughnut extends ViewGroup {
@@ -31,6 +43,7 @@ public class FitDoughnut extends ViewGroup {
     private int colorTextPrimary;
     private int colorTextSecondary;
 
+    private ObjectAnimator anim;
 
     private float percentDeg;
     public void setPercent(float percent) {
@@ -40,6 +53,14 @@ public class FitDoughnut extends ViewGroup {
         return (percentDeg / 360.f) * 100.f;
     }
 
+    private Property<FitDoughnut, Float> percentProperty = new Property<FitDoughnut, Float>(Float.class, "Percent") {
+        @Override public Float get(FitDoughnut fitDoughnut) {
+            return fitDoughnut.getPercent();
+        }
+        @Override public void set(FitDoughnut object, Float value) {
+            object.setPercent(value);
+        }
+    };
 
     public FitDoughnut(Context ctx) {
         super(ctx);
@@ -48,42 +69,54 @@ public class FitDoughnut extends ViewGroup {
 
     public FitDoughnut(Context ctx, AttributeSet attrs) {
         super(ctx, attrs);
-        //todo get vars from xml resources
+
+        TypedArray a = ctx.getTheme().obtainStyledAttributes(attrs, R.styleable.FitDoughnut, 0, 0);
+
+        try {
+            colorPrimary = a.getColor(R.styleable.FitDoughnut_fdColorPrimary, Color.rgb(225, 140, 80));
+            colorSecondary = a.getColor(R.styleable.FitDoughnut_fdColorSecondary, Color.rgb(200,200,200));
+        } finally {
+            a.recycle();
+        }
 
         init();
     }
 
     private void init() {
 
+        // setup variables
         fitDoughnutView = new FitDoughnutView(getContext());
         addView(fitDoughnutView);
-
-        //width = 80.f;
 
         textSizePrimary = 10.f;
         textSizeSecondary = 10.f;
 
-        setPercent(50);
-
-        colorPrimary = Color.rgb(225, 140, 80);
-        colorSecondary = Color.rgb(200,200,200);
         colorTextPrimary = Color.BLACK;
         colorTextSecondary = Color.BLACK;
 
+        // setup animator
+        anim = new ObjectAnimator();
+        anim.setTarget(this);
+        anim.setProperty(percentProperty);
+        anim.setStartDelay(500);
+        anim.setInterpolator(new AccelerateDecelerateInterpolator());
+        anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+            @Override public void onAnimationUpdate(ValueAnimator valueAnimator) {
+                fitDoughnutView.invalidate();
+            }
+        });
 
+        // setup paint
         paintPrimary = new Paint();
         paintPrimary.setAntiAlias(true);
         paintPrimary.setColor(colorPrimary);
         paintPrimary.setStyle(Paint.Style.STROKE);
         paintPrimary.setStrokeCap(Paint.Cap.ROUND);
-        //paintPrimary.setStrokeWidth(width);
 
         paintSecondary = new Paint();
         paintSecondary.setAntiAlias(true);
         paintSecondary.setColor(colorSecondary);
         paintSecondary.setStyle(Paint.Style.STROKE);
-        //paintSecondary.setStrokeWidth(width);
-
     }
 
     @Override
@@ -119,6 +152,23 @@ public class FitDoughnut extends ViewGroup {
     }
 
 
+    //region Animations
+
+    public void animateToPercent(float percent) {
+        animateToPercent(percent, 1000);
+    }
+
+    public void animateToPercent(float percent, long duration) {
+        anim.setFloatValues(0.f, percent);
+        anim.setDuration(duration);
+        anim.start();
+    }
+
+    //endregion
+
+
+    //region FitDoughnutView
+
     /**
      * FitDoughnutView class
      */
@@ -144,4 +194,6 @@ public class FitDoughnut extends ViewGroup {
             _oval = new RectF(width, width, w - width, h - width);
         }
     }
+
+    //endregion
 }
