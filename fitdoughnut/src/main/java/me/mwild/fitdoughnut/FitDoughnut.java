@@ -11,6 +11,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.util.Property;
@@ -23,6 +24,8 @@ import android.view.animation.DecelerateInterpolator;
 
 
 public class FitDoughnut extends ViewGroup {
+
+    private static final long ANIM_DURATION_DEF = 250;
 
     private FitDoughnutView fitDoughnutView;
 
@@ -45,22 +48,33 @@ public class FitDoughnut extends ViewGroup {
 
     private ObjectAnimator anim;
 
+    // Percent
     private float percentDeg;
+
     public void setPercent(float percent) {
         percentDeg = (percent / 100.f) * 360.f;
     }
+
     public float getPercent() {
         return (percentDeg / 360.f) * 100.f;
     }
 
     private Property<FitDoughnut, Float> percentProperty = new Property<FitDoughnut, Float>(Float.class, "Percent") {
-        @Override public Float get(FitDoughnut fitDoughnut) {
-            return fitDoughnut.getPercent();
+        @Override public Float get(FitDoughnut fd) {
+            return fd.getPercent();
         }
-        @Override public void set(FitDoughnut object, Float value) {
-            object.setPercent(value);
+        @Override public void set(FitDoughnut fd, Float value) {
+            fd.setPercent(value);
         }
     };
+
+    public void animateSetPercent(float percent) {
+        float old = getPercent();
+        setPercent(percent);
+        animateRing(old, getPercent(), ANIM_DURATION_DEF);
+
+    }
+
 
     public FitDoughnut(Context ctx) {
         super(ctx);
@@ -98,7 +112,7 @@ public class FitDoughnut extends ViewGroup {
         anim = new ObjectAnimator();
         anim.setTarget(this);
         anim.setProperty(percentProperty);
-        anim.setStartDelay(500);
+        //anim.setStartDelay(100);
         anim.setInterpolator(new AccelerateDecelerateInterpolator());
         anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
             @Override public void onAnimationUpdate(ValueAnimator valueAnimator) {
@@ -117,6 +131,16 @@ public class FitDoughnut extends ViewGroup {
         paintSecondary.setAntiAlias(true);
         paintSecondary.setColor(colorSecondary);
         paintSecondary.setStyle(Paint.Style.STROKE);
+
+        paintTextPrimary = new TextPaint();
+        paintTextPrimary.setAntiAlias(true);
+        paintTextPrimary.setColor(colorTextPrimary);
+        paintTextPrimary.setStyle(Paint.Style.STROKE);
+
+        paintTextSecondary = new TextPaint();
+        paintTextSecondary.setAntiAlias(true);
+        paintTextSecondary.setColor(colorTextSecondary);
+        paintTextSecondary.setStyle(Paint.Style.STROKE);
     }
 
     @Override
@@ -154,14 +178,14 @@ public class FitDoughnut extends ViewGroup {
 
     //region Animations
 
-    public void animateToPercent(float percent) {
-        animateToPercent(percent, 1000);
-    }
-
-    public void animateToPercent(float percent, long duration) {
-        anim.setFloatValues(0.f, percent);
+    private void animateRing(float from, float to, long duration) {
+        anim.setFloatValues(from, to);
         anim.setDuration(duration);
         anim.start();
+    }
+
+    public void animateToCurrent() {
+        animateRing(0.f, getPercent(), ANIM_DURATION_DEF);
     }
 
     //endregion
@@ -183,6 +207,8 @@ public class FitDoughnut extends ViewGroup {
         @Override
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
+
+            canvas.drawText("PAINT TEXT PRIMARY", _oval.left, _oval.top, paintTextPrimary);
 
             canvas.drawArc(_oval, 0, 360, false, paintSecondary);
 

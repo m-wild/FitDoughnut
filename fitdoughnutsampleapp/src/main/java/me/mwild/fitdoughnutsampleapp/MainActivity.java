@@ -6,6 +6,8 @@ import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
 
 import me.mwild.fitdoughnut.FitDoughnut;
 
@@ -13,6 +15,7 @@ import me.mwild.fitdoughnut.FitDoughnut;
 public class MainActivity extends ActionBarActivity {
 
     public FitDoughnut doughnut;
+    public Button myButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -22,15 +25,17 @@ public class MainActivity extends ActionBarActivity {
 
         doughnut = (FitDoughnut) findViewById(R.id.doughnut);
 
+        myButton = (Button) findViewById(R.id.my_button);
 
+        myButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View view) {
+
+                doughnut.animateSetPercent((float) Math.random() * 100);
+            }
+        });
 
     }
 
-    @Override public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-        if (hasFocus)
-            doughnut.animateToPercent(60);
-    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
