@@ -14,13 +14,20 @@
     <me.mwild.fitdoughnut.FitDoughnut
         android:id="@+id/doughnut"
         android:layout_width="match_parent"
-        android:layout_height="353dp"
-        android:layout_weight="0.13"/>
+        android:layout_height="300dp"
+        android:layout_weight="0.13"
+        app:fdColorPrimary="@android:color/holo_red_dark"/>
 
     <Button
-        android:id="@+id/my_button"
+        android:id="@+id/go_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Go"/>
+
+    <Button
+        android:id="@+id/stop_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Stop"/>
 
 </LinearLayout>

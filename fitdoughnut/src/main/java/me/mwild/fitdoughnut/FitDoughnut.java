@@ -1,9 +1,7 @@
 package me.mwild.fitdoughnut;
 
-import android.animation.AnimatorInflater;
-import android.animation.AnimatorSet;
+import android.animation.Animator;
 import android.animation.ObjectAnimator;
-import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -13,19 +11,21 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.text.TextPaint;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.Property;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateDecelerateInterpolator;
-import android.view.animation.AnimationUtils;
-import android.view.animation.BounceInterpolator;
-import android.view.animation.DecelerateInterpolator;
+import android.view.animation.AccelerateInterpolator;
+import android.view.animation.Animation;
+import android.view.animation.AnticipateInterpolator;
+import android.view.animation.CycleInterpolator;
+import android.view.animation.LinearInterpolator;
 
 
 public class FitDoughnut extends ViewGroup {
 
     private static final long ANIM_DURATION_DEF = 250;
+    //private static final long ANIM_DURATION_LONG = 30000;
 
     private FitDoughnutView fitDoughnutView;
 
@@ -46,34 +46,43 @@ public class FitDoughnut extends ViewGroup {
     private int colorTextPrimary;
     private int colorTextSecondary;
 
-    private ObjectAnimator anim;
+    private ObjectAnimator mainAnimator;
+    private ObjectAnimator loadingAnimator;
 
     // Percent
     private float percentDeg;
+    public float getPercent() { return (percentDeg/ 360.f) * 100.f; }
+    public void setPercent(float percent) { percentDeg = ((percent % 100)/ 100.f) * 360.f; }
+    private final Property<FitDoughnut, Float> percentProperty = new Property<FitDoughnut, Float>(Float.class, "Percent") {
+        @Override public Float get(FitDoughnut fd) { return fd.getPercent(); }
+        @Override public void set(FitDoughnut fd, Float value) { fd.setPercent(value); }
+    };
 
-    public void setPercent(float percent) {
-        percentDeg = (percent / 100.f) * 360.f;
-    }
 
-    public float getPercent() {
-        return (percentDeg / 360.f) * 100.f;
-    }
+    // origin angle
+    private float originAngle = 0;
+    private float getOriginAngle() { return (originAngle + 270) % 360; }
+    private void setOriginAngle(Float value) { originAngle = (value % 360); }
+    private final Property<FitDoughnut, Float> originAngleProperty = new Property<FitDoughnut, Float>(Float.class, "OriginAngle") {
+        @Override public Float get(FitDoughnut fd) { return fd.getOriginAngle(); }
+        @Override public void set(FitDoughnut fd, Float value) { fd.setOriginAngle(value); }
+    };
 
-    private Property<FitDoughnut, Float> percentProperty = new Property<FitDoughnut, Float>(Float.class, "Percent") {
-        @Override public Float get(FitDoughnut fd) {
-            return fd.getPercent();
-        }
-        @Override public void set(FitDoughnut fd, Float value) {
-            fd.setPercent(value);
+    private final ValueAnimator.AnimatorUpdateListener animatorUpdateListener = new ValueAnimator.AnimatorUpdateListener() {
+        @Override public void onAnimationUpdate(ValueAnimator valueAnimator) {
+            fitDoughnutView.invalidate();
         }
     };
 
-    public void animateSetPercent(float percent) {
-        float old = getPercent();
-        setPercent(percent);
-        animateRing(old, getPercent(), ANIM_DURATION_DEF);
 
-    }
+    //todo somehow make it stop at the right point
+//    private Animation.AnimationListener animationListener = new Animation.AnimationListener() {
+//        @Override public void onAnimationStart(Animation animation) {}
+//        @Override public void onAnimationEnd(Animation animation) {
+//            animation.
+//        }
+//        @Override public void onAnimationRepeat(Animation animation) {}
+//    }
 
 
     public FitDoughnut(Context ctx) {
@@ -109,16 +118,19 @@ public class FitDoughnut extends ViewGroup {
         colorTextSecondary = Color.BLACK;
 
         // setup animator
-        anim = new ObjectAnimator();
-        anim.setTarget(this);
-        anim.setProperty(percentProperty);
-        //anim.setStartDelay(100);
-        anim.setInterpolator(new AccelerateDecelerateInterpolator());
-        anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override public void onAnimationUpdate(ValueAnimator valueAnimator) {
-                fitDoughnutView.invalidate();
-            }
-        });
+        mainAnimator = new ObjectAnimator();
+        mainAnimator.setTarget(this);
+        mainAnimator.setProperty(percentProperty);
+        //mainAnimator.setStartDelay(100);
+        mainAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+        mainAnimator.addUpdateListener(animatorUpdateListener);
+
+        // loading animator
+        loadingAnimator = new ObjectAnimator();
+        loadingAnimator.setTarget(this);
+        loadingAnimator.setProperty(originAngleProperty);
+        loadingAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+        loadingAnimator.addUpdateListener(animatorUpdateListener);
 
         // setup paint
         paintPrimary = new Paint();
@@ -179,14 +191,50 @@ public class FitDoughnut extends ViewGroup {
     //region Animations
 
     private void animateRing(float from, float to, long duration) {
-        anim.setFloatValues(from, to);
-        anim.setDuration(duration);
-        anim.start();
+        mainAnimator.setFloatValues(from, to);
+        mainAnimator.setDuration(duration);
+        mainAnimator.start();
     }
 
     public void animateToCurrent() {
         animateRing(0.f, getPercent(), ANIM_DURATION_DEF);
     }
+
+    public void animateSetPercent(float percent) {
+        float old = getPercent();
+        setPercent(percent);
+        animateRing(old, getPercent(), ANIM_DURATION_DEF);
+
+    }
+
+
+    public void stopAnimateLoading() {
+//todo somehow make it stop at the right point
+//        loadingAnimator.addListener(new Animator.AnimatorListener() {
+//        });
+
+        mainAnimator.end();
+        loadingAnimator.end();
+
+
+        originAngle = 270;
+    }
+
+    public void animateLoading() {
+        mainAnimator.setFloatValues(0, 66, 0);
+        mainAnimator.setDuration(3000);
+        mainAnimator.setRepeatCount(Animation.INFINITE);
+
+        loadingAnimator.setFloatValues(0, 1080);
+        loadingAnimator.setDuration(3000);
+        loadingAnimator.setRepeatCount(Animation.INFINITE);
+        loadingAnimator.setStartDelay(100);
+
+        mainAnimator.start();
+        loadingAnimator.start();
+    }
+
+
 
     //endregion
 
@@ -210,9 +258,11 @@ public class FitDoughnut extends ViewGroup {
 
             canvas.drawText("PAINT TEXT PRIMARY", _oval.left, _oval.top, paintTextPrimary);
 
+            // draw the background doughnut
             canvas.drawArc(_oval, 0, 360, false, paintSecondary);
 
-            canvas.drawArc(_oval, 270, percentDeg, false, paintPrimary);
+            // draw the main ring on top
+            canvas.drawArc(_oval, getOriginAngle(), percentDeg, false, paintPrimary);
         }
 
         @Override

@@ -4,6 +4,7 @@ import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -12,25 +13,37 @@ import android.widget.Button;
 import me.mwild.fitdoughnut.FitDoughnut;
 
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends AppCompatActivity {
 
     public FitDoughnut doughnut;
-    public Button myButton;
+    public Button goButton;
+    public Button stopButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-
         doughnut = (FitDoughnut) findViewById(R.id.doughnut);
+        goButton = (Button) findViewById(R.id.go_button);
+        stopButton = (Button) findViewById(R.id.stop_button);
 
-        myButton = (Button) findViewById(R.id.my_button);
-
-        myButton.setOnClickListener(new View.OnClickListener() {
+        goButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View view) {
 
-                doughnut.animateSetPercent((float) Math.random() * 100);
+                //doughnut.animateSetPercent((float) Math.random() * 100);
+                doughnut.animateLoading();
+
+
+            }
+        });
+
+
+        stopButton.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+
+                doughnut.stopAnimateLoading();
+
             }
         });
 
