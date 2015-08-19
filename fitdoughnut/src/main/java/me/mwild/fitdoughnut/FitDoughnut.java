@@ -15,17 +15,14 @@ import android.util.Property;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.AccelerateDecelerateInterpolator;
-import android.view.animation.AccelerateInterpolator;
 import android.view.animation.Animation;
-import android.view.animation.AnticipateInterpolator;
-import android.view.animation.CycleInterpolator;
-import android.view.animation.LinearInterpolator;
 
 
 public class FitDoughnut extends ViewGroup {
 
-    private static final long ANIM_DURATION_DEF = 250;
-    //private static final long ANIM_DURATION_LONG = 30000;
+    private static final long ANIM_DURATION_DEFAULT = 500;
+    private static final long ANIM_DURATION_LONG = 2000;
+
 
     private FitDoughnutView fitDoughnutView;
 
@@ -34,8 +31,7 @@ public class FitDoughnut extends ViewGroup {
     private Paint paintTextPrimary;
     private Paint paintTextSecondary;
 
-    private RectF oval = new RectF();
-    private float radius;
+    private final RectF oval = new RectF();
     private float width;
 
     private float textSizePrimary;
@@ -46,10 +42,13 @@ public class FitDoughnut extends ViewGroup {
     private int colorTextPrimary;
     private int colorTextSecondary;
 
-    private ObjectAnimator mainAnimator;
-    private ObjectAnimator loadingAnimator;
+    private ObjectAnimator headAnimator;
+    private ObjectAnimator tailAnimator;
 
     // Percent
+    // stored internally as float between 0..360 (degrees)
+    // exposed through setter and getter as 0..100 (percent)
+    // overflow with modulo allows for continuous looping animations
     private float percentDeg;
     public float getPercent() { return (percentDeg/ 360.f) * 100.f; }
     public void setPercent(float percent) { percentDeg = ((percent % 100)/ 100.f) * 360.f; }
@@ -59,7 +58,11 @@ public class FitDoughnut extends ViewGroup {
     };
 
 
-    // origin angle
+    // OriginAngle
+    // used for animations
+    // range 0..360
+    // overflow loops with modulo
+    // offset by 270deg i.e. 0deg is 12 o'clock, 90deg is 3 o'clock
     private float originAngle = 0;
     private float getOriginAngle() { return (originAngle + 270) % 360; }
     private void setOriginAngle(Float value) { originAngle = (value % 360); }
@@ -68,21 +71,12 @@ public class FitDoughnut extends ViewGroup {
         @Override public void set(FitDoughnut fd, Float value) { fd.setOriginAngle(value); }
     };
 
+
+    // invalidate the view so it is redrawn when animator changes a property
     private final ValueAnimator.AnimatorUpdateListener animatorUpdateListener = new ValueAnimator.AnimatorUpdateListener() {
-        @Override public void onAnimationUpdate(ValueAnimator valueAnimator) {
-            fitDoughnutView.invalidate();
-        }
+        @Override public void onAnimationUpdate(ValueAnimator valueAnimator) { fitDoughnutView.invalidate(); }
     };
 
-
-    //todo somehow make it stop at the right point
-//    private Animation.AnimationListener animationListener = new Animation.AnimationListener() {
-//        @Override public void onAnimationStart(Animation animation) {}
-//        @Override public void onAnimationEnd(Animation animation) {
-//            animation.
-//        }
-//        @Override public void onAnimationRepeat(Animation animation) {}
-//    }
 
 
     public FitDoughnut(Context ctx) {
@@ -95,6 +89,7 @@ public class FitDoughnut extends ViewGroup {
 
         TypedArray a = ctx.getTheme().obtainStyledAttributes(attrs, R.styleable.FitDoughnut, 0, 0);
 
+        // attempt to get any values from the xml
         try {
             colorPrimary = a.getColor(R.styleable.FitDoughnut_fdColorPrimary, Color.rgb(225, 140, 80));
             colorSecondary = a.getColor(R.styleable.FitDoughnut_fdColorSecondary, Color.rgb(200,200,200));
@@ -105,9 +100,10 @@ public class FitDoughnut extends ViewGroup {
         init();
     }
 
+
+
     private void init() {
 
-        // setup variables
         fitDoughnutView = new FitDoughnutView(getContext());
         addView(fitDoughnutView);
 
@@ -118,19 +114,23 @@ public class FitDoughnut extends ViewGroup {
         colorTextSecondary = Color.BLACK;
 
         // setup animator
-        mainAnimator = new ObjectAnimator();
-        mainAnimator.setTarget(this);
-        mainAnimator.setProperty(percentProperty);
-        //mainAnimator.setStartDelay(100);
-        mainAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
-        mainAnimator.addUpdateListener(animatorUpdateListener);
+        headAnimator = new ObjectAnimator();
+        headAnimator.setTarget(this);
+        headAnimator.setProperty(percentProperty);
+        headAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+        headAnimator.addUpdateListener(animatorUpdateListener);
 
-        // loading animator
-        loadingAnimator = new ObjectAnimator();
-        loadingAnimator.setTarget(this);
-        loadingAnimator.setProperty(originAngleProperty);
-        loadingAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
-        loadingAnimator.addUpdateListener(animatorUpdateListener);
+        // tail animator
+        // animates the 'end' of the ring.. for loading anim
+        tailAnimator = new ObjectAnimator();
+        tailAnimator.setTarget(this);
+        tailAnimator.setProperty(originAngleProperty);
+        tailAnimator.setInterpolator(new AccelerateDecelerateInterpolator());
+        tailAnimator.addUpdateListener(animatorUpdateListener);
+        tailAnimator.setFloatValues(0, 1080);
+        tailAnimator.setDuration(FitDoughnut.ANIM_DURATION_LONG);
+        tailAnimator.setRepeatCount(Animation.INFINITE);
+        tailAnimator.setStartDelay(100);
 
         // setup paint
         paintPrimary = new Paint();
@@ -175,7 +175,7 @@ public class FitDoughnut extends ViewGroup {
         float hh = (float) h - ypad;
         float diameter = Math.min(ww, hh);
 
-        oval = new RectF(0.f, 0.f, diameter, diameter);
+        oval.set(0.f, 0.f, diameter, diameter);
         oval.offsetTo(getPaddingLeft(), getPaddingTop());
 
         // set stroke width..
@@ -191,47 +191,77 @@ public class FitDoughnut extends ViewGroup {
     //region Animations
 
     private void animateRing(float from, float to, long duration) {
-        mainAnimator.setFloatValues(from, to);
-        mainAnimator.setDuration(duration);
-        mainAnimator.start();
+        headAnimator.setFloatValues(from, to);
+        headAnimator.setDuration(duration);
+        headAnimator.start();
     }
 
-    public void animateToCurrent() {
-        animateRing(0.f, getPercent(), ANIM_DURATION_DEF);
-    }
+
 
     public void animateSetPercent(float percent) {
         float old = getPercent();
         setPercent(percent);
-        animateRing(old, getPercent(), ANIM_DURATION_DEF);
+        animateRing(old, getPercent(), FitDoughnut.ANIM_DURATION_DEFAULT);
 
     }
 
-
+    /**
+     * gracefully stop the "indeterminate loading" animation and reset to the initial point
+     */
     public void stopAnimateLoading() {
-//todo somehow make it stop at the right point
-//        loadingAnimator.addListener(new Animator.AnimatorListener() {
-//        });
-
-        mainAnimator.end();
-        loadingAnimator.end();
-
-
-        originAngle = 270;
+        stopAnimateLoading(.1f);
     }
 
-    public void animateLoading() {
-        mainAnimator.setFloatValues(0, 66, 0);
-        mainAnimator.setDuration(3000);
-        mainAnimator.setRepeatCount(Animation.INFINITE);
+    /**
+     * gracefully stop the "indeterminate loading" animation and animate to a new {@code percent}
+     * @param percent the new percent to animate to once current animation has finished
+     */
+    public void stopAnimateLoading(final float percent) {
+        if (headAnimator.isRunning() && tailAnimator.isRunning()) {
+            // remove any listeners we may have previously attached
+            headAnimator.removeAllListeners();
+            tailAnimator.removeAllListeners();
 
-        loadingAnimator.setFloatValues(0, 1080);
-        loadingAnimator.setDuration(3000);
-        loadingAnimator.setRepeatCount(Animation.INFINITE);
-        loadingAnimator.setStartDelay(100);
+            // gracefully let the animation finish it's current cycle, then kill it and remove this listener
+            tailAnimator.addListener(new Animator.AnimatorListener() {
+                @Override public void onAnimationStart(Animator animation) {}
+                @Override public void onAnimationEnd(Animator animation) {}
+                @Override public void onAnimationCancel(Animator animation) {}
+                @Override public void onAnimationRepeat(Animator animation) {
+                    animation.end();
+                    animation.removeListener(this);
+                    setOriginAngle(0.f);
+                }
+            });
 
-        mainAnimator.start();
-        loadingAnimator.start();
+            headAnimator.addListener(new Animator.AnimatorListener() {
+                @Override public void onAnimationStart(Animator animation) {}
+                @Override public void onAnimationEnd(Animator animation) {}
+                @Override public void onAnimationCancel(Animator animation) {}
+                @Override public void onAnimationRepeat(Animator animation) {
+                    animation.end();
+                    animation.removeListener(this);
+                    // reset the head animator values we changed when starting the loading animation
+                    headAnimator.setRepeatCount(0);
+                    headAnimator.setDuration(FitDoughnut.ANIM_DURATION_DEFAULT);
+
+                    animateSetPercent(percent);
+                }
+            });
+
+        }
+    }
+
+    /**
+     * start the "indeterminate loading" animation
+     */
+    public void startAnimateLoading() {
+        headAnimator.setFloatValues(.1f, 66.f, .1f);
+        headAnimator.setDuration(FitDoughnut.ANIM_DURATION_LONG);
+        headAnimator.setRepeatCount(Animation.INFINITE);
+
+        headAnimator.start();
+        tailAnimator.start();
     }
 
 
@@ -246,7 +276,7 @@ public class FitDoughnut extends ViewGroup {
      */
     class FitDoughnutView extends View {
 
-        private RectF _oval;
+        private final RectF fdvOval = new RectF();
 
         public FitDoughnutView(Context ctx) {
             super(ctx);
@@ -256,18 +286,18 @@ public class FitDoughnut extends ViewGroup {
         protected void onDraw(Canvas canvas) {
             super.onDraw(canvas);
 
-            canvas.drawText("PAINT TEXT PRIMARY", _oval.left, _oval.top, paintTextPrimary);
+            //canvas.drawText("PAINT TEXT PRIMARY", oval.left, oval.top, paintTextPrimary);
 
             // draw the background doughnut
-            canvas.drawArc(_oval, 0, 360, false, paintSecondary);
+            canvas.drawArc(fdvOval, 0, 360, false, paintSecondary);
 
             // draw the main ring on top
-            canvas.drawArc(_oval, getOriginAngle(), percentDeg, false, paintPrimary);
+            canvas.drawArc(fdvOval, getOriginAngle(), percentDeg, false, paintPrimary);
         }
 
         @Override
         protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-            _oval = new RectF(width, width, w - width, h - width);
+            fdvOval.set(width, width /*[SIC]*/, w - width, h - width);
         }
     }
 

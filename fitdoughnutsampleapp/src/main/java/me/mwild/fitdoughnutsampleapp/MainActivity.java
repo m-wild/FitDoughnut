@@ -32,7 +32,7 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onClick(View view) {
 
                 //doughnut.animateSetPercent((float) Math.random() * 100);
-                doughnut.animateLoading();
+                doughnut.startAnimateLoading();
 
 
             }
@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
 
-                doughnut.stopAnimateLoading();
+                doughnut.stopAnimateLoading(33.f);
 
             }
         });
